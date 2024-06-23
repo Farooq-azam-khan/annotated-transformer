@@ -151,5 +151,38 @@ class Decoder(nn.Module):
         return self.norm(x)
 
 
+class DecoderLayer(nn.Module):
+    def __init__self(self, size, self_attn, src_attn, feed_forward, dropout):
+        super(DecoderLayer, self).__init__()
+        self.size = size
+        self.self_attn = self_attn
+        self.src_attn = src_attn
+        self.feed_forward = feed_forward
+        self.sublayer = clones(SublayerConnection(size, dropout), 3)
+
+    def forward(self, x, memory, src_mask, tgt_mask):
+        m = memory
+        x = self.sublayer[0](x, lambda x: self.self_attn(x, x, x, tgt_mask))
+        x = self.sublayer[1](x, lambda x: self.src_attn(x, m, m, src_mask))
+        return self.sublayer[2](x, self.feed_forward)
+
+
+def subsequent_mask(size):
+    attn_shape = (1, size, size)
+    sub_sequent_mask = torch.triu(torch.ones(attn_shape), diagonal=1).type(torch.uint8)
+    return sub_sequent_mask == 0
+
+
+def attention(query, key, value, mask=None, dropout=None):
+    dk = query.size(-1)
+    scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(dk)
+    if mask is not None:
+        scores = scores.masked_fill(mask == 0, -1e9)
+    p_attn = scores.softmax(dim=-1)
+    if dropout is not None:
+        p_attn = dropout(p_attn)
+    return torch.matmul(p_attn, value), p_attn
+
+
 if __name__ == "__main__":
     print("Hello World")
